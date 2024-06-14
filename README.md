@@ -9,7 +9,3 @@ To ensure the testing data includes data from each country, we randomly selected
 I obtained three output datasets: `output_new_overall.csv`, `output_new_2019.csv`, and `output_new_2019_oecd.csv`. To explore the relationship between drug prices and unmet treatment needs, my teammate and I aggregated the results together and obtained new output data and visualizations: `hypertension_meds_combined_2019.csv`, `Fischer_vs_prob_diag_untreated.png`, `Laspeyres_vs_prob_diag_untreated.png`, and `Paasche_vs_prob_diag_untreated.png`.
 
 Regarding the hypothesis of why countries with low pharmaceutical retail prices might still experience high proportions of untreated hypertension, our hypothesis is that geographic or financial barriers, or lack of health awareness, can limit access to pharmacies or healthcare facilities. Particularly in underdeveloped countries, these factors may result in low pharmaceutical retail prices but still high proportions of untreated hypertension.
-
----
-
-This version corrects grammar and punctuation and ensures clarity and coherence throughout the text.
