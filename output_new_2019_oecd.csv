@@ -1,0 +1,129 @@
+"Country","mean_2019_prob_diag_untreated","label","OECD"
+"Niger",0.035954573179433,"low",0
+"Mexico",0.0516937238628144,"low",1
+"Papua New Guinea",0.0517404468365146,"low",0
+"Oman",0.0548060389447832,"low",0
+"Samoa",0.0574541107171019,"low",0
+"Rwanda",0.0587143780753886,"low",0
+"Tonga",0.0606890599304649,"low",0
+"United Arab Emirates",0.0628623396458048,"low",0
+"Ireland",0.0631710445467499,"low",1
+"Egypt",0.0648221027116458,"low",0
+"Kuwait",0.0652575729035768,"low",0
+"Ghana",0.0652600039435376,"low",0
+"Occupied Palestinian Territory",0.0654159046028712,"low",0
+"Cote d'Ivoire",0.0655431213448398,"low",0
+"Benin",0.0657478661663676,"low",0
+"Mozambique",0.0681520621531089,"low",0
+"Brazil",0.0682904325605959,"low",0
+"Namibia",0.0685387058062135,"low",0
+"Lesotho",0.0695933581739171,"low",0
+"Lebanon",0.0707580071031976,"low",0
+"Albania",0.0723371032996866,"low",0
+"South Africa",0.0738206199660554,"low",0
+"Chad",0.0746441472583023,"low",0
+"Liberia",0.0748904756118022,"low",0
+"French Polynesia",0.0751655265533806,"low",0
+"Sudan",0.0754865174721792,"low",0
+"Armenia",0.0760888390449466,"low",0
+"China",0.0765508212949433,"low",0
+"India",0.0782883917279426,"low",0
+"Turkey",0.0793017570291078,"low",1
+"American Samoa",0.0795096178567394,"low",0
+"Bangladesh",0.0798281705562193,"low",0
+"Sierra Leone",0.0811340106160068,"low",0
+"Azerbaijan",0.0811883590154544,"low",0
+"Uzbekistan",0.0821152078732993,"low",0
+"Vanuatu",0.082240883863726,"low",0
+"Saint Kitts and Nevis",0.0823574556387476,"low",0
+"Peru",0.0823581222950855,"low",0
+"United States of America",0.0828365709189234,"low",1
+"Marshall Islands",0.0828660413429414,"low",0
+"Gabon",0.0837202329894258,"low",0
+"Pakistan",0.0845893396558912,"low",0
+"Algeria",0.0846889457264081,"low",0
+"Cameroon",0.0852656129171032,"low",0
+"Malawi",0.0856105699043621,"low",0
+"Dominica",0.0872998607501626,"low",0
+"Qatar",0.0875512622942716,"low",0
+"Libya",0.0875963080068611,"low",0
+"Costa Rica",0.0883839271495738,"low",1
+"Bahamas",0.0886082628377217,"low",0
+"Burkina Faso",0.0893613922740605,"low",0
+"Lao PDR",0.0901141251477795,"low",0
+"Congo",0.0920474639159854,"low",0
+"Jordan",0.0922395888144305,"low",0
+"Trinidad and Tobago",0.0923331827629171,"low",0
+"Uganda",0.0924169984966265,"low",0
+"Cambodia",0.0937369521486511,"low",0
+"Afghanistan",0.0949625143932009,"low",0
+"Kyrgyzstan",0.0964648039009981,"low",0
+"Philippines",0.0970079466117517,"low",0
+"Swaziland",0.0971139132689207,"low",0
+"Timor-Leste",0.0972503467372313,"low",0
+"DR Congo",0.0975287224977325,"low",0
+"Tuvalu",0.0979953498459885,"low",0
+"Eritrea",0.0991958913794565,"high",0
+"Mali",0.0993604079198958,"high",0
+"Central African Republic",0.102552703011349,"high",0
+"Sri Lanka",0.102688857092492,"high",0
+"Kiribati",0.103233234321332,"high",0
+"Ukraine",0.103851216879215,"high",0
+"Guatemala",0.103883464199031,"high",0
+"Nepal",0.106255881836769,"high",0
+"Gambia",0.106502097412979,"high",0
+"Comoros",0.106862940726341,"high",0
+"Turkmenistan",0.109157427556837,"high",0
+"United Kingdom",0.109807175477172,"high",1
+"Fiji",0.110014359658439,"high",0
+"Grenada",0.110560791951718,"high",0
+"Australia",0.111096692517619,"high",1
+"Indonesia",0.112389586044004,"high",0
+"Mongolia",0.112837964961166,"high",0
+"Morocco",0.113842598856516,"high",0
+"Cabo Verde",0.114905247565923,"high",0
+"Togo",0.115206285463357,"high",0
+"Uruguay",0.115508022438638,"high",0
+"Cuba",0.117132984877173,"high",0
+"Tajikistan",0.117937700698665,"high",0
+"Tanzania",0.118201364285148,"high",0
+"Germany",0.118976012127262,"high",1
+"Ecuador",0.119132655295939,"high",0
+"El Salvador",0.121410856324164,"high",0
+"Maldives",0.121795109613858,"high",0
+"Madagascar",0.122381741287631,"high",0
+"Solomon Islands",0.128488977538214,"high",0
+"Saint Lucia",0.129956835081293,"high",0
+"Micronesia (Federated States of)",0.132990033681353,"high",0
+"France",0.133586442124074,"high",1
+"Belgium",0.134192436614856,"high",1
+"Denmark",0.134279019357093,"high",1
+"Guinea",0.134344226538005,"high",0
+"Botswana",0.135270254677086,"high",0
+"Palau",0.135946961249112,"high",0
+"Guyana",0.136383746525913,"high",0
+"Nauru",0.140269195939492,"high",0
+"Kenya",0.140900301331654,"high",0
+"Saint Vincent and the Grenadines",0.142405008967346,"high",0
+"Chile",0.143868022156102,"high",1
+"Poland",0.145581101122681,"high",1
+"Georgia",0.145795334299674,"high",0
+"Italy",0.148100867451947,"high",1
+"Bhutan",0.148745675823162,"high",0
+"Viet Nam",0.149261744889317,"high",0
+"Sao Tome and Principe",0.150060313457281,"high",0
+"Russian Federation",0.162598432135223,"high",0
+"Zambia",0.162609226951625,"high",0
+"Moldova",0.163824891705471,"high",0
+"Serbia",0.16593828473516,"high",0
+"Iraq",0.167144396882326,"high",0
+"Iceland",0.172800772262897,"high",1
+"Belarus",0.176680327270747,"high",0
+"Ethiopia",0.185192728570771,"high",0
+"Japan",0.189107670143216,"high",1
+"Argentina",0.194279529530326,"high",0
+"Lithuania",0.202383072465107,"high",1
+"Canada",0.203076012671657,"high",1
+"Haiti",0.209395351317941,"high",0
+"Spain",0.218265367045651,"high",1
+"New Zealand",0.231661667096111,"high",1

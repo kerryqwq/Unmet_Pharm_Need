@@ -1,0 +1,646 @@
+---
+title: "ncdbetamodel"
+author: "Kerry Ye"
+date: "2023-07-24"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = F)
+knitr::opts_chunk$set(warning = F)
+```
+
+
+```{r}
+# Read the ncdsurvey input data with the urban percentage
+ncdsurvey <- read.csv("/Users/kerryqwq/Desktop/summer/ncdsurvey_urb.csv")
+
+# Calculate the percentage of diagnosed with hypertension but untreated
+ncdsurvey$prev_ratio_diag_untreat <- ncdsurvey$prev_ratio_diag - ncdsurvey$prev_ratio_treat
+ncdsurvey
+```
+
+```{r}
+# find the number of missing values for the number of diagnosed cases and remove them from the dataset
+sum(is.na(ncdsurvey$n_ratio_diag))
+sum(is.na(ncdsurvey$prev_ratio_diag_untreat))
+ncdsurvey <- ncdsurvey[!is.na(ncdsurvey$n_ratio_diag), ]
+```
+
+
+```{r}
+#total number of countries in the input data
+length(unique(ncdsurvey$Country))
+```
+
+```{r}
+#remove those having the percentage of diagnosed with hypertension but untreated equal to 0
+#since the beta regression does not allow the outcome to be equal to 0 or 1, the proportion should be strictly bounded in (0, 1)
+ncdsurvey <- ncdsurvey[ncdsurvey$prev_ratio_diag_untreat != 0, ]
+```
+
+
+```{r}
+library(tidyverse)
+# Create new Age groups based on specified ranges
+ncdsurveynew <- ncdsurvey %>%
+  mutate(Age = case_when(between(age, 29.5, 34) ~ "30-34",
+                         between(age, 34.5, 39) ~ "35-39",
+                         between(age, 29.5, 44) ~ "40-44",
+                         between(age, 44.5, 49) ~ "45-49",
+                         between(age, 49.5, 54) ~ "50-54",
+                         between(age, 54.5, 59) ~ "55-59",
+                         between(age, 59.5, 64) ~ "60-64",
+                         between(age, 64.5, 69) ~ "65-69",
+                         between(age, 69.5, 74) ~ "70-74",
+                         between(age, 74.5, 79) ~ "75-79"
+                         ),
+          # Convert sex codes to meaningful labels
+         Sex = case_when(sex == 1 ~ "Men",
+                          sex == 2 ~ "Women")) %>%
+  rename(Year = mid_year, ISO = iso)
+
+# Convert columns to factors
+ncdsurveynew$Age <- as.factor(ncdsurveynew$Age)
+ncdsurveynew$Sex <- as.factor(ncdsurveynew$Sex)
+ncdsurveynew$Country <- as.factor(ncdsurveynew$Country)
+ncdsurveynew$sex <- as.factor(ncdsurveynew$sex)
+ncdsurveynew$Region <- as.factor(ncdsurveynew$Region)
+ncdsurveynew$Superregion <- as.factor(ncdsurveynew$Superregion)
+
+# Select only the necessary columns
+ncdsurveynew <- ncdsurveynew %>%
+  select(Country, Age, Sex, Year, Urban_Perc, n_ratio_diag, Region, Superregion, prev_ratio_diag_untreat, ISO)
+```
+
+```{r}
+ncdsurveynew[apply(ncdsurveynew, 1, function(row) any(is.na(row))), ]
+```
+```{r}
+ # Remove rows with any missing values
+ncdsurveynew <- na.omit(ncdsurveynew)
+```
+```{r}
+# save the dataset
+write.csv(ncdsurveynew, file = "/Users/kerryqwq/Downloads/ncdsurveynew.csv", row.names = FALSE)
+```
+
+
+
+```{r}
+library(fitdistrplus)
+
+prob <- ncdsurveynew$prev_ratio_diag_untreat
+fit_beta <- fitdist(prob, "beta")
+plot(fit_beta)
+```
+
+```{r}
+# create the testing data by randomly selecting two rows from each country without replacement
+set.seed(123)
+testing_data <- ncdsurveynew %>%
+  group_by(Country) %>%
+  sample_n(size = 2, replace = FALSE)
+testing_data
+```
+
+```{r}
+# set the rest of the input data as the training data
+join_columns <- intersect(names(ncdsurveynew), names(testing_data))
+training_data <- anti_join(ncdsurveynew, testing_data, by = join_columns)
+training_data
+```
+
+```{r}
+# Beta regression model with mixed effects
+library(glmmTMB)
+M1 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = training_data,
+               family = beta_family(link = "logit"))
+summary(M1)
+```
+
+```{r}
+x_test <- testing_data %>%
+  dplyr::select(Age, Sex, Year, Urban_Perc, n_ratio_diag, Region, Superregion, Country)
+y_test <- testing_data$prev_ratio_diag_untreat
+
+predicted <- predict(M1, x_test, type = "response")
+o <- data.frame(y_test, predicted)
+o
+```
+
+
+```{r}
+library(forecast)
+library(DescTools)
+accuracy(predicted, y_test)
+BrierScore <- BrierScore(y_test, predicted)
+BrierScore
+```
+
+```{r}
+#shuffle the random effects
+set.seed(123)
+training_data1 <- training_data %>%
+  mutate(Region = sample(Region), Superregion = sample(Superregion))
+```
+
+```{r}
+# beta regression with shuffle random effects
+M2 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Country/Region/Superregion), 
+               data = training_data1,
+               family = beta_family(link = "logit"))
+summary(M2)
+```
+
+```{r}
+predicted <- predict(M2, x_test, type = "response")
+
+o <- data.frame(y_test, predicted)
+o
+```
+
+
+```{r}
+accuracy(predicted, y_test)
+BrierScore <- BrierScore(y_test, predicted)
+BrierScore 
+```
+
+
+
+```{r}
+# beta regression with fixed effects only
+library(betareg)
+M3 <- betareg(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + Country, data = training_data)
+
+summary(M3)
+```
+
+```{r}
+predicted <- predict(M3, x_test, type = "response")
+
+o <- data.frame(y_test, predicted)
+o
+
+accuracy(predicted, y_test)
+
+BrierScore <- BrierScore(y_test, predicted)
+BrierScore
+```
+
+```{r}
+# Create bootstrap sample
+set.seed(111)
+bootstrap_sample1 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample2 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample3 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample4 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample5 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample6 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample7 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample8 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample9 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample10 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+```
+
+```{r}
+set.seed(222)
+bootstrap_sample2_0 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample6_0 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+bootstrap_sample10_0 <- training_data[sample(nrow(training_data), nrow(training_data), replace = TRUE), ]
+```
+
+
+
+```{r}
+# Train the model with bootsrap training data
+library(glmmTMB)
+bs_M1 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample1,
+               family = beta_family(link = "logit"))
+
+bs_M2 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample2_0,
+               family = beta_family(link = "logit"))
+
+bs_M3 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample3,
+               family = beta_family(link = "logit"))
+
+bs_M4 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample4,
+               family = beta_family(link = "logit"))
+
+bs_M5 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample5,
+               family = beta_family(link = "logit"))
+
+bs_M6 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample6_0,
+               family = beta_family(link = "logit"))
+
+bs_M7 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample7,
+               family = beta_family(link = "logit"))
+
+bs_M8 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample8,
+               family = beta_family(link = "logit"))
+
+bs_M9 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample9,
+               family = beta_family(link = "logit"))
+
+bs_M10 <- glmmTMB(prev_ratio_diag_untreat ~ Age + Sex + Year + Urban_Perc + n_ratio_diag + (1|Superregion/Region/Country), 
+               data = bootstrap_sample10_0,
+               family = beta_family(link = "logit"))
+```
+
+```{r}
+predicted_bs_M1_t <- predict(bs_M1, x_test, type = "response")
+predicted_bs_M2_t <- predict(bs_M2, x_test, type = "response")
+predicted_bs_M3_t <- predict(bs_M3, x_test, type = "response")
+predicted_bs_M4_t <- predict(bs_M4, x_test, type = "response")
+predicted_bs_M5_t <- predict(bs_M5, x_test, type = "response")
+predicted_bs_M6_t <- predict(bs_M6, x_test, type = "response")
+predicted_bs_M7_t <- predict(bs_M7, x_test, type = "response")
+predicted_bs_M8_t <- predict(bs_M8, x_test, type = "response")
+predicted_bs_M9_t <- predict(bs_M9, x_test, type = "response")
+predicted_bs_M10_t <- predict(bs_M10, x_test, type = "response")
+```
+
+```{r}
+accuracy(predicted_bs_M1_t, y_test)
+accuracy(predicted_bs_M2_t, y_test)
+accuracy(predicted_bs_M3_t, y_test)
+accuracy(predicted_bs_M4_t, y_test)
+accuracy(predicted_bs_M5_t, y_test)
+accuracy(predicted_bs_M6_t, y_test)
+accuracy(predicted_bs_M7_t, y_test)
+accuracy(predicted_bs_M8_t, y_test)
+accuracy(predicted_bs_M9_t, y_test)
+accuracy(predicted_bs_M10_t, y_test)
+```
+```{r}
+BrierScore(y_test, predicted_bs_M1_t)
+BrierScore(y_test, predicted_bs_M2_t)
+BrierScore(y_test, predicted_bs_M3_t)
+BrierScore(y_test, predicted_bs_M4_t)
+BrierScore(y_test, predicted_bs_M5_t)
+BrierScore(y_test, predicted_bs_M6_t)
+BrierScore(y_test, predicted_bs_M7_t)
+BrierScore(y_test, predicted_bs_M8_t)
+BrierScore(y_test, predicted_bs_M9_t)
+BrierScore(y_test, predicted_bs_M10_t)
+```
+
+```{r}
+output <- read.csv("/Users/kerryqwq/Downloads/NCD-RisC_Lancet_2021_Hypertension_age_specific_estimates_by_country.csv")
+```
+
+```{r}
+library(tidyverse)
+
+# calculate the mean of n_ratio_diag by Country and round it down to the nearest integer
+t1 <- training_data %>%
+  group_by(Country) %>%
+  summarise(mean_n_ratio_diag = floor(mean(n_ratio_diag)))
+
+# select Country, Region, and Superregion
+t2 <- training_data %>%
+  dplyr::select(Country, Region, Superregion) %>%
+  unique()
+
+# get a vector of unique ISO codes from the training data
+training_countries <- unique(training_data$ISO)
+
+# filter the output dataset to include only rows with ISO codes present in the training data
+subset_data <- output %>% 
+  filter(ISO %in% training_countries)
+
+# display the subset of data
+subset_data
+
+```
+
+```{r}
+urban <- read.csv("/Users/kerryqwq/Downloads/API_SP.URB.TOTL.IN.ZS_DS2_en_csv_v2_5607752/Urban_Percentage_Country.csv", check.names = FALSE)
+```
+
+
+```{r}
+# transform the dataset to long format adn calculate the urban percentage
+urban <- urban %>%
+  pivot_longer(!c('Country_Name', 'Country_Code', 'Indicator_Name', 'Indicator_Code'),
+                    names_to='year',
+                    values_to='Urban_Perc')
+
+urban$Urban_Perc <- urban$Urban_Perc/100
+urban$year <- as.numeric(urban$year)
+```
+
+
+```{r}
+library(dplyr)
+newdf <- left_join(subset_data, urban, 
+            by=c('Year'= 'year', "ISO" = "Country_Code"))
+newdf <- left_join(newdf, t1, by = c("Country" = "Country"))
+```
+
+
+
+
+```{r}
+output_new <- left_join(newdf, t2, by = c("Country" = "Country"))
+
+output_new <- output_new %>%
+  dplyr::select(Country, Sex, Year, Age, Urban_Perc, mean_n_ratio_diag, Region, Superregion) %>%
+  rename(n_ratio_diag = mean_n_ratio_diag)
+
+output_new$Age <- as.factor(output_new$Age)
+output_new$Sex <-as.factor(output_new$Sex)
+output_new$Country <-as.factor(output_new$Country)
+output_new
+```
+
+```{r}
+# Generate predicted values for each model trained by bootstrap sample using the output data
+predicted_bs_M1 <- predict(bs_M1, output_new, type = "response")
+predicted_bs_M2 <- predict(bs_M2, output_new, type = "response")
+predicted_bs_M3 <- predict(bs_M3, output_new, type = "response")
+predicted_bs_M4 <- predict(bs_M4, output_new, type = "response")
+predicted_bs_M5 <- predict(bs_M5, output_new, type = "response")
+predicted_bs_M6 <- predict(bs_M6, output_new, type = "response")
+predicted_bs_M7 <- predict(bs_M7, output_new, type = "response")
+predicted_bs_M8 <- predict(bs_M8, output_new, type = "response")
+predicted_bs_M9 <- predict(bs_M9, output_new, type = "response")
+predicted_bs_M10 <- predict(bs_M10, output_new, type = "response")
+
+```
+
+
+```{r}
+# Assign the predicted values to the output_new dataset
+output_new$prob_diag_untreated_M1 <- predicted_bs_M1
+output_new$prob_diag_untreated_M2 <- predicted_bs_M2
+output_new$prob_diag_untreated_M3 <- predicted_bs_M3
+output_new$prob_diag_untreated_M4 <- predicted_bs_M4
+output_new$prob_diag_untreated_M5 <- predicted_bs_M5
+output_new$prob_diag_untreated_M6 <- predicted_bs_M6
+output_new$prob_diag_untreated_M7 <- predicted_bs_M7
+output_new$prob_diag_untreated_M8 <- predicted_bs_M8
+output_new$prob_diag_untreated_M9 <- predicted_bs_M9
+output_new$prob_diag_untreated_M10 <- predicted_bs_M10
+output_new$mean_prob_diag_untreated <- rowMeans(output_new[,c(9:18)])
+output_new
+```
+```{r}
+# create a boxplot of mean proportion of diagnosed but untreated by age group
+ggplot(output_new, aes(x = Age, y = mean_prob_diag_untreated, fill = Age)) +
+  ggtitle("Mean Proportion of Diagnosed but Untreated for All Age Groups") +
+geom_boxplot()
+```
+```{r}
+# Create a boxplot of mean proportion of diagnosed but untreated by sex group
+ggplot(output_new, aes(x = Sex, y = mean_prob_diag_untreated, fill = Sex)) +
+   ggtitle("Mean Proportion of Diagnosed but Untreated for All Sex Groups") +
+geom_boxplot()
+```
+
+
+
+```{r}
+write.csv(output_new, file = "/Users/kerryqwq/Downloads/output_new_overall.csv", row.names = FALSE)
+```
+
+```{r}
+# Filter data for 2019, group by country, and calculate mean proportion of diagnosed but untreated cases
+output_new_2019 <- output_new %>%
+  filter(Year == 2019) %>%
+  group_by(Country) %>%
+  summarise(mean_2019_prob_diag_untreated = mean(mean_prob_diag_untreated))
+output_new_2019
+```
+```{r}
+threshold <- median(output_new_2019$mean_2019_prob_diag_untreated)
+output_new_2019 <- output_new_2019 %>%
+  mutate(label = ifelse(mean_2019_prob_diag_untreated >= threshold, "high", "low")) %>%
+  arrange(mean_2019_prob_diag_untreated)
+output_new_2019
+```
+
+```{r}
+write.csv(output_new_2019, file = "/Users/kerryqwq/Downloads/output_new_2019.csv", row.names = FALSE)
+```
+
+```{r}
+oecd_countries <- c('Australia', 'Austria', 'Belgium', 'Canada', 'Chile', 'Colombia', 'Czech Republic',
+                    'Denmark', 'Estonia', 'Finland', 'France', 'Germany', 'Greece', 'Hungary', 'Iceland',
+                    'Ireland', 'Israel', 'Italy', 'Japan', 'Korea', 'Latvia', 'Lithuania', 'Luxembourg',
+                    'Mexico', 'Netherlands', 'New Zealand', 'Norway', 'Poland', 'Portugal', 'Slovak Republic',
+                    'Slovenia', 'Spain', 'Sweden', 'Switzerland', 'Turkey', 'United Kingdom', 'United States of America', 'Costa Rica')
+
+# Create a new column 'OECD' to label each country as 1 if it's an OECD member and 0 otherwise
+output_new_2019_oecd <- output_new_2019 %>%
+  mutate(OECD = if_else(Country %in% oecd_countries, 1, 0))
+
+output_new_2019_oecd
+```
+```{r}
+write.csv(output_new_2019_oecd, file = "/Users/kerryqwq/Downloads/output_new_2019_oecd.csv", row.names = FALSE)
+```
+
+
+```{r}
+output_new_2019_oecd[output_new_2019_oecd$OECD==1,]
+```
+```{r}
+dataset_countries <- unique(output_new_2019_oecd$Country)
+
+missing_oecd_countries <- setdiff(oecd_countries, dataset_countries)
+
+missing_oecd_countries
+```
+
+```{r}
+# Load the data
+data1 <- read.csv("/Users/kerryqwq/Downloads/hypertension_meds_combined_2019.csv")
+data1
+```
+
+
+```{r}
+data1 <- data1 %>%
+  mutate(Laspeyres_w_prop_label = case_when(
+     Laspeyres_Category == "High" & label == "high" ~ "high-high",
+    Laspeyres_Category == "High" & label == "low" ~ "high-low",
+    Laspeyres_Category == "Middle" & label == "high" ~ "middle-high",
+   Laspeyres_Category == "Middle" & label == "low" ~ "middle-low",
+    Laspeyres_Category == "Low" & label == "high" ~ "low-high",
+    Laspeyres_Category == "Low" & label == "low" ~ "low-low"
+  )) %>%
+  mutate(Paasche_w_prop_label = case_when(
+     Paasche_Category == "High" & label == "high" ~ "high-high",
+    Paasche_Category == "High" & label == "low" ~ "high-low",
+    Paasche_Category == "Middle" & label == "high" ~ "middle-high",
+   Paasche_Category == "Middle" & label == "low" ~ "middle-low",
+    Paasche_Category == "Low" & label == "high" ~ "low-high",
+    Paasche_Category == "Low" & label == "low" ~ "low-low"
+  )) %>%
+  mutate(Fischer_w_prop_label = case_when(
+     Fischer_Category == "High" & label == "high" ~ "high-high",
+    Fischer_Category == "High" & label == "low" ~ "high-low",
+    Fischer_Category == "Middle" & label == "high" ~ "middle-high",
+   Fischer_Category == "Middle" & label == "low" ~ "middle-low",
+    Fischer_Category == "Low" & label == "high" ~ "low-high",
+    Fischer_Category == "Low" & label == "low" ~ "low-low"
+  ))
+
+ggplot(data1, aes(x = Laspeyres, y = mean_2019_prob_diag_untreated, color = Laspeyres_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Laspeyres", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Hypertension Meds Laspeyres Index v.s. Mean 2019 Prob Diag Untreated") + 
+  theme_minimal()
+
+```
+```{r}
+ggplot(data1, aes(x = Paasche, y = mean_2019_prob_diag_untreated, color = Paasche_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Paasche", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Hypertension Meds Paasche Index v.s. Mean 2019 Prob Diag Untreated") + 
+  theme_minimal()
+```
+
+```{r}
+ggplot(data1, aes(x = Fischer, y = mean_2019_prob_diag_untreated, color = Fischer_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Fischer", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Hypertension Meds Fischer Index v.s. Mean 2019 Prob Diag Untreated") + 
+  theme_minimal()
+```
+
+```{r}
+data2 <- read.csv("/Users/kerryqwq/Downloads/recommended_treatment_combined_2019.csv")
+data2
+```
+
+```{r}
+data2 <- data2 %>%
+  mutate(Laspeyres_w_prop_label = case_when(
+     Laspeyres_Category == "High" & label == "high" ~ "high-high",
+    Laspeyres_Category == "High" & label == "low" ~ "high-low",
+    Laspeyres_Category == "Middle" & label == "high" ~ "middle-high",
+   Laspeyres_Category == "Middle" & label == "low" ~ "middle-low",
+    Laspeyres_Category == "Low" & label == "high" ~ "low-high",
+    Laspeyres_Category == "Low" & label == "low" ~ "low-low"
+  )) %>%
+  mutate(Paasche_w_prop_label = case_when(
+     Paasche_Category == "High" & label == "high" ~ "high-high",
+    Paasche_Category == "High" & label == "low" ~ "high-low",
+    Paasche_Category == "Middle" & label == "high" ~ "middle-high",
+   Paasche_Category == "Middle" & label == "low" ~ "middle-low",
+    Paasche_Category == "Low" & label == "high" ~ "low-high",
+    Paasche_Category == "Low" & label == "low" ~ "low-low"
+  )) %>%
+  mutate(Fischer_w_prop_label = case_when(
+     Fischer_Category == "High" & label == "high" ~ "high-high",
+    Fischer_Category == "High" & label == "low" ~ "high-low",
+    Fischer_Category == "Middle" & label == "high" ~ "middle-high",
+   Fischer_Category == "Middle" & label == "low" ~ "middle-low",
+    Fischer_Category == "Low" & label == "high" ~ "low-high",
+    Fischer_Category == "Low" & label == "low" ~ "low-low"
+  ))
+
+ggplot(data2, aes(x = Laspeyres, y = mean_2019_prob_diag_untreated, color = Laspeyres_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Laspeyres", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Recommended Treatment Laspeyres Index v.s. Mean 2019 Prob Diag Untreated") + 
+  theme_minimal()
+
+```
+
+```{r}
+ggplot(data2, aes(x = Paasche, y = mean_2019_prob_diag_untreated, color = Paasche_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Paasche", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Recommended Treatment Paasche Index v.s. Mean 2019 Prob Diag Untreated") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(data2, aes(x = Fischer, y = mean_2019_prob_diag_untreated, color = Fischer_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Fischer", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Recommended Treatment Fischer Index v.s. Mean 2019 Prob Diag Untreated") +
+  theme_minimal()
+```
+
+```{r}
+data3 <- read.csv("/Users/kerryqwq/Downloads/essential_meds_combined_2019.csv")
+data3
+```
+
+```{r}
+data3 <- data3 %>%
+  mutate(Laspeyres_w_prop_label = case_when(
+     Laspeyres_Category == "High" & label == "high" ~ "high-high",
+    Laspeyres_Category == "High" & label == "low" ~ "high-low",
+    Laspeyres_Category == "Middle" & label == "high" ~ "middle-high",
+   Laspeyres_Category == "Middle" & label == "low" ~ "middle-low",
+    Laspeyres_Category == "Low" & label == "high" ~ "low-high",
+    Laspeyres_Category == "Low" & label == "low" ~ "low-low"
+  )) %>%
+  mutate(Paasche_w_prop_label = case_when(
+     Paasche_Category == "High" & label == "high" ~ "high-high",
+    Paasche_Category == "High" & label == "low" ~ "high-low",
+    Paasche_Category == "Middle" & label == "high" ~ "middle-high",
+   Paasche_Category == "Middle" & label == "low" ~ "middle-low",
+    Paasche_Category == "Low" & label == "high" ~ "low-high",
+    Paasche_Category == "Low" & label == "low" ~ "low-low"
+  )) %>%
+  mutate(Fischer_w_prop_label = case_when(
+     Fischer_Category == "High" & label == "high" ~ "high-high",
+    Fischer_Category == "High" & label == "low" ~ "high-low",
+    Fischer_Category == "Middle" & label == "high" ~ "middle-high",
+   Fischer_Category == "Middle" & label == "low" ~ "middle-low",
+    Fischer_Category == "Low" & label == "high" ~ "low-high",
+    Fischer_Category == "Low" & label == "low" ~ "low-low"
+  ))
+
+ggplot(data3, aes(x = Laspeyres, y = mean_2019_prob_diag_untreated, color = Laspeyres_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Laspeyres", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Essential Meds Laspeyres Index v.s. Mean 2019 Prob Diag Untreated") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(data3, aes(x = Paasche, y = mean_2019_prob_diag_untreated, color = Paasche_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Paasche", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Essential Meds Paasche Index v.s. Mean 2019 Prob Diag Untreated") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(data3, aes(x = Fischer, y = mean_2019_prob_diag_untreated, color = Fischer_w_prop_label)) +
+  geom_point() +
+  geom_text(aes(label = Country), vjust = -1, size = 3) +
+  labs(x = "Fischer", y = "Mean 2019 Prob Diag Untreated") +
+  ggtitle("Essential Meds Fischer Index v.s. Mean 2019 Prob Diag Untreated") +
+  theme_minimal()
+```
+
