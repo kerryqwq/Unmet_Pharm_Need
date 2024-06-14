@@ -1,9 +1,5 @@
 # Identify Unmet Pharmaceutical Needs in Hypertension Treatment Across 128 Countries
 
-Here is your text with corrected grammar and refined for clarity:
-
----
-
 In this summer fellowship, our project aims to identify unmet pharmaceutical needs in hypertension treatment across different countries. There are two datasets: I am responsible for analyzing the NCDRisC hypertension survey dataset, while my teammate Jared Dunn is responsible for analyzing the IQVIA pharmaceutical retail data. My goal is to build a statistical model to predict the proportion of people diagnosed with hypertension but untreated, spanning 30 years, 10 age groups, and 2 sexes.
 
 I proposed three models: 1) Beta regression with random effects (country/region/superregion), 2) Beta regression with shuffled random effects and 3) Beta regression model with only fixed effects.
